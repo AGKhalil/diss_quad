@@ -2,7 +2,8 @@
 # from OpenGL import GLU
 import os
 import time
-import mujoco_py as mj
+import subprocess
+import shutil
 import gym
 import gym_real
 import numpy as np
@@ -16,93 +17,121 @@ from stable_baselines.bench import Monitor
 from stable_baselines.results_plotter import load_results, ts2xy
 
 best_mean_reward, n_steps, old_steps = -np.inf, 0, 0
-step_total = 100000
+step_total = 2000000
+
+if step_total >= 1000000:
+  n_gifs = 10
+else:
+  n_gifs = 2
+log_incs = np.round((step_total / n_gifs) * 25 / 60000)
+print(n_gifs)
 env_name = 'Real-v0'
 
-##############################################Functions#################################################
+##############################################Functions###################
+
 
 def callback(_locals, _globals):
-  """
-  Callback called at each step (for DQN an others) or after n steps (see ACER or PPO2)
-  :param _locals: (dict)
-  :param _globals: (dict)
-  """
-  global n_steps, best_mean_reward, old_steps, gif_dir
-  # Print stats every 1000 calls
+    """
+    Callback called at each step (for DQN an others) or after n steps (see ACER or PPO2)
+    :param _locals: (dict)
+    :param _globals: (dict)
+    """
+    global n_steps, best_mean_reward, old_steps, gif_dir, env_name, log_incs, models_tmp_dir
+    # Print stats every 1000 calls
 
-  if abs(n_steps - old_steps) >= 25:
-    old_steps = n_steps
-    # Evaluate policy performance
-    x, y = ts2xy(load_results(log_dir), 'timesteps')
-    if len(x) > 0:
-      mean_reward = np.mean(y[-100:])
-      print(x[-1], 'timesteps')
-      print("Best mean reward: {:.2f} - Last mean reward per episode: {:.2f}".format(best_mean_reward, mean_reward))
+    if abs(n_steps - old_steps) >= log_incs:
+        old_steps = n_steps
+        # Evaluate policy performance
+        x, y = ts2xy(load_results(log_dir), 'timesteps')
+        if len(x) > 0:
+            mean_reward = np.mean(y[-100:])
+            print(x[-1], 'timesteps')
+            print("Best mean reward: {:.2f} - Last mean reward per episode: {:.2f}".format(
+                best_mean_reward, mean_reward))
 
-      # New best model, you could save the agent here
-      if mean_reward > best_mean_reward:
-        best_mean_reward = mean_reward
-        # Example for saving best model
-        print("Saving new best model")
-        _locals['self'].save(log_dir + 'best_model.pkl')
+            # New best model, you could save the agent here
+            if mean_reward > best_mean_reward:
+                best_mean_reward = mean_reward
+                # Example for saving best model
+                print("Saving new best model")
+                _locals['self'].save(models_tmp_dir + 'best_model.pkl')
 
-    stamp =' {:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now())
-    gif_name = "PPO2_"+env_name+"_"+str(step_total)+"_"+stamp
-    save_str = gif_dir + gif_name + '.gif'
-    images = []
-    obs = env.reset()
-    img = env.render(mode='rgb_array')
-    for _ in range(1000):
-      action, _ = model.predict(obs)
-      obs, _, _ ,_ = env.step(action)
-      img = env.render(mode='rgb_array')
-      images.append(img)
+        stamp = ' {:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now())
+        gif_name = "PPO2_" + env_name + "_" + str(step_total) + "_" + stamp
+        save_str = gif_dir + gif_name + '.gif'
+        images = []
 
-    imageio.mimsave(save_str, [np.array(img) for i, img in enumerate(images) if i%2 == 0], fps=29)
-    print("gif created...")
-  n_steps += 1
+        env_gif = gym.make(env_name)
+        obs = env_gif.reset()
+        img = env_gif.sim.render(width=300, height=300, camera_name="isometric_view")
+        for _ in range(5000):
+            action, _ = model.predict(obs)
+            obs, _, _, _ = env_gif.step(action)
+            img = env_gif.sim.render(width=300, height=300, camera_name="isometric_view")
+            images.append(np.flipud(img))
 
-  return True
+        print("creating gif...")
+        imageio.mimsave(save_str, [np.array(img)
+                                   for i, img in enumerate(images) if i % 2 == 0], fps=29)
+        print("gif created...")
+    n_steps += 1
+
+    return True
+
 
 def moving_average(values, window):
-  """
-  Smooth values by doing a moving average
-  :param values: (numpy array)
-  :param window: (int)
-  :return: (numpy array)
-  """
-  weights = np.repeat(1.0, window) / window
-  return np.convolve(values, weights, 'valid')
+    """
+    Smooth values by doing a moving average
+    :param values: (numpy array)
+    :param window: (int)
+    :return: (numpy array)
+    """
+    weights = np.repeat(1.0, window) / window
+    return np.convolve(values, weights, 'valid')
 
 
-def plot_results(log_folder, title='Learning Curve'):
-  """
-  plot the results
+def plot_results(log_folder, model_name, plt_dir, title='Learning Curve'):
+    """
+    plot the results
 
-  :param log_folder: (str) the save location of the results to plot
-  :param title: (str) the title of the task to plot
-  """
-  x, y = ts2xy(load_results(log_folder), 'timesteps')
-  y = moving_average(y, window=50)
-  # Truncate x
-  x = x[len(x) - len(y):]
+    :param log_folder: (str) the save location of the results to plot
+    :param title: (str) the title of the task to plot
+    """
+    m_name_csv = model_name + ".csv"
+    old_file_name = os.path.join(log_folder, "monitor.csv")
+    new_file_name = os.path.join(log_folder, m_name_csv)
+    save_name = os.path.join(plt_dir, model_name)
 
-  fig = plt.figure(title)
-  plt.plot(x, y)
-  plt.xlabel('Number of Timesteps')
-  plt.ylabel('Rewards')
-  plt.title(title + " Smoothed")
-  plt.show()
-  plt.waitKey(0)
+    x, y = ts2xy(load_results(log_folder), 'timesteps')
+    shutil.copy(old_file_name, new_file_name)
+    y = moving_average(y, window=50)
+    # Truncate x
+    x = x[len(x) - len(y):]
 
-############################################Traing Models###############################################
+    fig = plt.figure(title)
+    plt.plot(x, y)
+    plt.xlabel('Number of Timesteps')
+    plt.ylabel('Rewards')
+    plt.title(title + " Smoothed")
+    plt.savefig(save_name + ".png")
+    plt.savefig(save_name + ".eps")
+    print("plots saved...")
+    plt.show()
+
+############################################Traing Models#################
 
 print("running...")
 # Create log dir
+models_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models/")
+models_tmp_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models_tmp/")
 log_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tmp")
-gif_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tmp_gif")
+gif_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tmp_gif/")
+plt_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "plot")
 os.makedirs(log_dir, exist_ok=True)
 os.makedirs(gif_dir, exist_ok=True)
+os.makedirs(models_dir, exist_ok=True)
+os.makedirs(models_tmp_dir, exist_ok=True)
+os.makedirs(plt_dir, exist_ok=True)
 # Create and wrap the environment
 env = gym.make(env_name)
 # env = Monitor(env, log_dir, allow_early_resets=True)
@@ -116,49 +145,32 @@ env = SubprocVecEnv([lambda: env for i in range(n_cpu)])
 
 model = PPO2(MlpPolicy, env, verbose=1)
 start = time.time()
-model.learn(total_timesteps=step_total)
+model.learn(total_timesteps=step_total, callback=callback)
 end = time.time()
 
 training_time = end - start
 
-stamp =' {:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now())
-model_name = "PPO2_"+env_name+"_"+str(step_total)+"_"+stamp+"_"+str(training_time)
-model.save(model_name)
+stamp = ' {:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now())
+model_name = "PPO2_" + env_name + "_" + \
+    str(step_total) + "_" + stamp + "_" + str(training_time)
+model_loc = os.path.join(models_dir, model_name)
+print(model_loc)
+model.save(model_loc)
 
 print("Training time:", training_time)
 print("model saved as: " + model_name)
 
-del model # remove to demonstrate saving and loading
-env = gym.make(env_name)
-model = PPO2.load(model_name)
+plot_results(log_dir, model_name, plt_dir)
 
-plot_results(log_dir)
+del model  # remove to demonstrate saving and loading
+env = gym.make(env_name)
 
 # Enjoy trained agent
 watch_agent = input("Do you want to watch your sick gaits? (Y/n):")
+print("********************************************************************")
+print("To keep replaying after the env closes hit ENTER, to quit hit ctrl+c")
+print("********************************************************************")
 while watch_agent == "y" or "Y":
-  obs = env.reset()
-  for i in range(1000):
-      action, _states = model.predict(obs)
-      obs, rewards, dones, info = env.step(action)
-      env.render(mode='rgb_array')
-  watch_agent = input("Do you want to watch your sick gaits? (Y/n):")
-  if watch_agent == "n":
-    break
-
-
-
-
-# continue_training = input("Do you want to keen working on your sick gaits?(Y/n): "
-
-# if continue_training == "Y":
-#   print("Pussy, get out the gym")
-# else:
-#   extra_steps = input("Sweeeet, how many more timesteps?: ")
-#   print (extra_steps + " more time steps it is..")
-
-# watch for ever    
-# while True:
-#     action, _states = model.predict(obs)
-#     obs, rewards, dones, info = env.step(action)
-#     env.render()
+    subprocess.Popen(
+        '''export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so; python load_agent.py '%s' ''' % model_name, shell=True)
+    watch_agent = input("Do you want to watch your sick gaits? (Y/n):")

@@ -12,7 +12,8 @@ from stable_baselines.bench import Monitor
 from stable_baselines.results_plotter import load_results, ts2xy
 
 if __name__ == "__main__":
-	file_name = str(sys.argv[1])
+	env_name = str(sys.argv[1])
+	file_name = str(sys.argv[2])
 
 	if file_name[:3] == "mod":
 		model_name = file_name
@@ -21,12 +22,11 @@ if __name__ == "__main__":
 		log_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tmp")
 		model_name = os.path.join(dirpath, file_name)
 
-	env_name = 'Real-v0'
 	env = gym.make(env_name)
 	model = PPO2.load(model_name)
 
 	obs = env.reset()
-	for i in range(1000):
+	for i in range(10000):
 	  action, _states = model.predict(obs)
 	  obs, rewards, dones, info = env.step(action)
 	  env.render()

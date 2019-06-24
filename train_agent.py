@@ -16,15 +16,14 @@ from stable_baselines import PPO2
 from stable_baselines.bench import Monitor
 from stable_baselines.results_plotter import load_results, ts2xy
 
-best_mean_reward, n_steps, old_steps = -np.inf, 0, 0
-step_total = 2000000
+best_mean_reward, n_steps, old_steps, total_gif_time = -np.inf, 0, 0, 0
+step_total = 1000000
 
 if step_total >= 1000000:
-  n_gifs = 10
+    n_gifs = 5
 else:
-  n_gifs = 2
-log_incs = np.round((step_total / n_gifs) * 25 / 60000)
-print(n_gifs)
+    n_gifs = 2
+log_incs = np.round((step_total / n_gifs) * 60 / 60000)
 env_name = 'Real-v0'
 
 ##############################################Functions###################
@@ -36,10 +35,11 @@ def callback(_locals, _globals):
     :param _locals: (dict)
     :param _globals: (dict)
     """
-    global n_steps, best_mean_reward, old_steps, gif_dir, env_name, log_incs, models_tmp_dir
+    global n_steps, best_mean_reward, old_steps, gif_dir, env_name, log_incs, models_tmp_dir, total_gif_time
     # Print stats every 1000 calls
 
     if abs(n_steps - old_steps) >= log_incs:
+        gif_start = time.time()
         old_steps = n_steps
         # Evaluate policy performance
         x, y = ts2xy(load_results(log_dir), 'timesteps')
@@ -63,17 +63,21 @@ def callback(_locals, _globals):
 
         env_gif = gym.make(env_name)
         obs = env_gif.reset()
-        img = env_gif.sim.render(width=300, height=300, camera_name="isometric_view")
+        img = env_gif.sim.render(
+            width=200, height=200, camera_name="isometric_view")
         for _ in range(5000):
             action, _ = model.predict(obs)
             obs, _, _, _ = env_gif.step(action)
-            img = env_gif.sim.render(width=300, height=300, camera_name="isometric_view")
+            img = env_gif.sim.render(
+                width=200, height=200, camera_name="isometric_view")
             images.append(np.flipud(img))
 
         print("creating gif...")
         imageio.mimsave(save_str, [np.array(img)
                                    for i, img in enumerate(images) if i % 2 == 0], fps=29)
         print("gif created...")
+        gif_end = time.time()
+        total_gif_time += gif_end - gif_start
     n_steps += 1
 
     return True
@@ -122,8 +126,10 @@ def plot_results(log_folder, model_name, plt_dir, title='Learning Curve'):
 
 print("running...")
 # Create log dir
-models_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models/")
-models_tmp_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models_tmp/")
+models_dir = os.path.join(os.path.dirname(
+    os.path.realpath(__file__)), "models/")
+models_tmp_dir = os.path.join(os.path.dirname(
+    os.path.realpath(__file__)), "models_tmp/")
 log_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tmp")
 gif_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tmp_gif/")
 plt_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "plot")
@@ -138,7 +144,7 @@ env = gym.make(env_name)
 # env = DummyVecEnv([lambda: env])
 
 # multiprocess environment
-n_cpu = 20
+n_cpu = 8
 env = Monitor(env, log_dir, allow_early_resets=True)
 env = SubprocVecEnv([lambda: env for i in range(n_cpu)])
 # Add some param noise for exploration
@@ -148,7 +154,7 @@ start = time.time()
 model.learn(total_timesteps=step_total, callback=callback)
 end = time.time()
 
-training_time = end - start
+training_time = end - start - total_gif_time
 
 stamp = ' {:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now())
 model_name = "PPO2_" + env_name + "_" + \
@@ -172,5 +178,5 @@ print("To keep replaying after the env closes hit ENTER, to quit hit ctrl+c")
 print("********************************************************************")
 while watch_agent == "y" or "Y":
     subprocess.Popen(
-        '''export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so; python load_agent.py '%s' ''' % model_name, shell=True)
+        '''export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so; python load_agent.py '%s' '%s' ''' % (env_name, model_name), shell=True)
     watch_agent = input("Do you want to watch your sick gaits? (Y/n):")

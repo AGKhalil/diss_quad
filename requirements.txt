@@ -9,7 +9,7 @@ enum34==1.1.6
 future==0.17.1
 glfw==1.8.1
 gym==0.12.5
--e git+https://github.com/AGKhalil/gym-real.git@0292a2958b31789510d506bad103ad0c36f36110#egg=gym_real
+-e git+https://github.com/AGKhalil/gym-real.git#egg=gym_real
 html5lib==0.9999999
 imageio==2.5.0
 joblib==0.13.2

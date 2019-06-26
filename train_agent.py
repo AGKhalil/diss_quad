@@ -15,9 +15,10 @@ from stable_baselines.common.vec_env import SubprocVecEnv, DummyVecEnv, VecNorma
 from stable_baselines import PPO2
 from stable_baselines.bench import Monitor
 from stable_baselines.results_plotter import load_results, ts2xy
+import xml.etree.ElementTree as ET
 
 best_mean_reward, n_steps, old_steps, total_gif_time = -np.inf, 0, 0, 0
-step_total = 1000000
+step_total = 50000
 
 if step_total >= 1000000:
     n_gifs = 5
@@ -122,6 +123,22 @@ def plot_results(log_folder, model_name, plt_dir, title='Learning Curve'):
     print("plots saved...")
     plt.show()
 
+
+def alter_leg(leg_length):
+    xml_path = os.path.join(gym_real.__path__[0], "envs/assets/real.xml")
+
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    for geom in root.findall("worldbody/body/body/body/body/geom"):
+        geom.set("fromto", "0 0 0 0 0 " + str(leg_length))
+        print(geom.get("fromto"))
+
+    for pos in root.findall("worldbody/body/[@name='torso']"):
+        pos.set("pos", "0 0 " + str(abs(leg_length) + 0.7))
+        print(pos.get('pos'))
+
+    tree.write(xml_path)
+
 ############################################Traing Models#################
 
 print("running...")
@@ -148,6 +165,17 @@ n_cpu = 8
 env = Monitor(env, log_dir, allow_early_resets=True)
 env = SubprocVecEnv([lambda: env for i in range(n_cpu)])
 # Add some param noise for exploration
+
+alter_leg(-5.0)
+
+model = PPO2(MlpPolicy, env, verbose=1)
+start = time.time()
+model.learn(total_timesteps=step_total, callback=callback)
+end = time.time()
+
+# del model
+
+alter_leg(-0.3)
 
 model = PPO2(MlpPolicy, env, verbose=1)
 start = time.time()

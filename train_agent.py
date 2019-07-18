@@ -18,13 +18,13 @@ from stable_baselines.results_plotter import load_results, ts2xy
 import xml.etree.ElementTree as ET
 
 best_mean_reward, n_steps, old_steps, total_gif_time = -np.inf, 0, 0, 0
-step_total = 50000
+step_total = 250000
 
 if step_total >= 1000000:
-    n_gifs = 5
+    n_gifs = 2
 else:
     n_gifs = 2
-log_incs = np.round((step_total / n_gifs) * 60 / 60000)
+log_incs = np.round((step_total / n_gifs) / 2560)
 env_name = 'Real-v0'
 
 ##############################################Functions###################
@@ -126,6 +126,7 @@ def plot_results(log_folder, model_name, plt_dir, title='Learning Curve'):
 
 def alter_leg(leg_length):
     xml_path = os.path.join(gym_real.__path__[0], "envs/assets/real.xml")
+    print(xml_path)
 
     tree = ET.parse(xml_path)
     root = tree.getroot()
@@ -134,7 +135,7 @@ def alter_leg(leg_length):
         print(geom.get("fromto"))
 
     for pos in root.findall("worldbody/body/[@name='torso']"):
-        pos.set("pos", "0 0 " + str(abs(leg_length) + 0.7))
+        pos.set("pos", "-10.0 0 " + str(abs(leg_length) + 0.7))
         print(pos.get('pos'))
 
     tree.write(xml_path)
@@ -150,53 +151,112 @@ models_tmp_dir = os.path.join(os.path.dirname(
 log_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tmp")
 gif_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tmp_gif/")
 plt_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "plot")
+# tensor_dir = os.path.join(os.path.dirname(
+#     os.path.realpath(__file__)), "tensorboard/")
 os.makedirs(log_dir, exist_ok=True)
 os.makedirs(gif_dir, exist_ok=True)
 os.makedirs(models_dir, exist_ok=True)
 os.makedirs(models_tmp_dir, exist_ok=True)
 os.makedirs(plt_dir, exist_ok=True)
+# os.makedirs(tensor_dir, exist_ok=True)
+
+# print(tensor_dir)
+
+# alter_leg(-0.1)
+
 # Create and wrap the environment
 env = gym.make(env_name)
 # env = Monitor(env, log_dir, allow_early_resets=True)
 # env = DummyVecEnv([lambda: env])
-
 # multiprocess environment
-n_cpu = 8
+n_cpu = 20
 env = Monitor(env, log_dir, allow_early_resets=True)
 env = SubprocVecEnv([lambda: env for i in range(n_cpu)])
 # Add some param noise for exploration
 
-alter_leg(-5.0)
+# alter_leg(-5.0)
+lengths = [i * -0.1 for i in range(1, 10)]
+model_created = False
 
-model = PPO2(MlpPolicy, env, verbose=1)
-start = time.time()
-model.learn(total_timesteps=step_total, callback=callback)
-end = time.time()
+print(lengths)
+counter = 0
+all_x = []
+all_y = []
+vert_x = []
 
-# del model
+for i in lengths:
+	counter += 1
+	alter_leg(i)
+	env = gym.make(env_name)
+	n_cpu = 20
+	env = Monitor(env, log_dir, allow_early_resets=True)
+	env = SubprocVecEnv([lambda: env for i in range(n_cpu)])
+	if not model_created:
+		# , tensorboard_log="./a2c_cartpole_tensorboard/
+		model = PPO2(MlpPolicy, env, verbose=1)
+	else:
+		model = PPO2.load(model_loc, env=env)
+	start = time.time()
+	model.learn(total_timesteps=step_total)
+	model_loc = os.path.join(models_dir, 'hand')
 
-alter_leg(-0.3)
+	x, y = ts2xy(load_results(log_dir), 'timesteps')
+	y = moving_average(y, window=50)
+	x = x[len(x) - len(y):]
+	for i in x:
+		if model_created:
+			all_x.append(i + vert_x[-1])
+			appended_val = x[-1] + vert_x[-1]
+		else:
+			all_x.append(i)
+			appended_val = x[-1]
 
-model = PPO2(MlpPolicy, env, verbose=1)
-start = time.time()
-model.learn(total_timesteps=step_total, callback=callback)
-end = time.time()
+	vert_x.append(appended_val)
+	for i in y:
+		all_y.append(i)
+	os.remove(os.path.join(log_dir, "monitor.csv"))
+
+	model.save(model_loc)
+	env.close()
+	model_created = True
+	del env
+	del model
+	end = time.time()
 
 training_time = end - start - total_gif_time
+print(counter)
+print(lengths)
+print(all_x)
+print(all_y)
+print(vert_x)
 
-stamp = ' {:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now())
-model_name = "PPO2_" + env_name + "_" + \
-    str(step_total) + "_" + stamp + "_" + str(training_time)
-model_loc = os.path.join(models_dir, model_name)
-print(model_loc)
-model.save(model_loc)
+save_name = os.path.join(plt_dir, 'hand' + str(step_total))
 
-print("Training time:", training_time)
-print("model saved as: " + model_name)
+fig = plt.figure('hand' + str(step_total))
+plt.plot(all_x, all_y)
+for i in vert_x:
+	plt.axvline(x=i, linestyle='--', color='#ccc5c6', label='leg increment')
+plt.xlabel('Number of Timesteps')
+plt.ylabel('Rewards')
+plt.title('hand' + " Smoothed")
+plt.savefig(save_name + ".png")
+plt.savefig(save_name + ".eps")
+print("plots saved...")
+plt.show()
 
-plot_results(log_dir, model_name, plt_dir)
+# stamp = ' {:%Y-%m-%d %H:%M:%S}'.format(datetime.datetime.now())
+# model_name = "PPO2_" + env_name + "_" + \
+#     str(step_total) + "_" + stamp + "_" + str(training_time)
+# model_loc = os.path.join(models_dir, model_name)
+# print(model_loc)
+# model.save(model_loc)
 
-del model  # remove to demonstrate saving and loading
+# print("Training time:", training_time)
+# print("model saved as: " + model_name)
+
+# plot_results(log_dir, 'hand', plt_dir)
+
+# del model  # remove to demonstrate saving and loading
 env = gym.make(env_name)
 
 # Enjoy trained agent
@@ -206,5 +266,5 @@ print("To keep replaying after the env closes hit ENTER, to quit hit ctrl+c")
 print("********************************************************************")
 while watch_agent == "y" or "Y":
     subprocess.Popen(
-        '''export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so; python load_agent.py '%s' '%s' ''' % (env_name, model_name), shell=True)
+        '''export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so; python load_agent.py '%s' '%s' ''' % (env_name, 'hand'), shell=True)
     watch_agent = input("Do you want to watch your sick gaits? (Y/n):")

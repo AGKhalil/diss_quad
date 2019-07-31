@@ -1,5 +1,20 @@
-# Train an agent from scratch with PPO2 and save package and learning graphs
-# from OpenGL import GLU
+"""Script for running the gym-cl environment. This is to test Automatic Curriculum Generation (ACG)
+
+Attributes:
+    env (gym.env): a gym environment
+    env_name (str): name of the environment
+    log_dir (str): training log directory path
+    model (BaseRLModel): RL model for training (prof)
+    model_loc (str): model save location
+    model_name (str): model name
+    models_dir (str): model save directory
+    n_cpu (int): number of cpus used for multiprocessing
+    reset_timesteps (int): max number of steps in a prof episode
+    save_path (str): path to parent directory of all data
+    stamp (str): time stamp
+    step_total (int): total prof training time steps
+    worker_total_timesteps (int): total training time steps per worker
+"""
 import os
 import time
 import subprocess

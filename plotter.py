@@ -1,3 +1,4 @@
+import os
 import csv
 import matplotlib.pyplot as plt
 import numpy as np
@@ -41,7 +42,7 @@ def get_plot_csv(plot_log):
     return length, reward
 
 def plot_graph(plot_name, save_name, length, reward):
-    reward = moving_average(reward, window=1)
+    reward = moving_average(reward, window=30)
     # Truncate length
     length = length[len(length) - len(reward):]
     title = plot_name
@@ -50,9 +51,13 @@ def plot_graph(plot_name, save_name, length, reward):
     plt.xlabel('Number of Timesteps')
     plt.ylabel('Rewards')
     plt.title(title)
+    plt.ylim([0, 800])
     plt.savefig(save_name + ".png")
     plt.savefig(save_name + ".eps")
     # plt.show()
+
+plot_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "plot_saves/")
+os.makedirs(plot_dir, exist_ok=True)
 
 exp_logger = 'experiment_logs'
 file = shelve.open(exp_logger)
@@ -63,8 +68,8 @@ for exp in keys:
     print(exp, file[exp][2])
     length, reward = [], []
     cum_l = 0
-    plot_name = file[exp][0] + str(file[exp][1])
-    save_name = file[exp][0] + str(file[exp][1]) + str(file[exp][2])
+    plot_name = exp + file[exp][0] + str(file[exp][1])
+    save_name = plot_dir + file[exp][0] + str(file[exp][1]) + str(file[exp][2])
     for model_name in model_names:
         run_path = 'tf_save/' + model_name
         l, r = get_plot_csv(load_checkpoint(run_path))

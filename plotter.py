@@ -13,7 +13,7 @@ def moving_average(values, window):
     weights = np.repeat(1.0, window) / window
     return np.convolve(values, weights, 'valid')
 
-def load_checkpoint(checkpoint, run_path):
+def load_checkpoint(run_path, checkpoint=-1):
     checkpoint_log = run_path + '/checkpoint'
     checkpoint_keeper = []
     with open(checkpoint_log) as csv_file:
@@ -21,50 +21,55 @@ def load_checkpoint(checkpoint, run_path):
         line_count = 0
         for row in csv_reader:
             if line_count != 0:
-                checkpoint_keeper.append(row[1])
+                checkpoint_keeper.append(row[0])
             line_count += 1
-    return run_path + '/' + checkpoint_keeper[checkpoint] + '.pkl'
+    return run_path + '/' + checkpoint_keeper[checkpoint] + '.csv'
+
+def get_plot_csv(plot_log):
+    reward, length, time = [], [], []
+    with open(plot_log) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        line_count = 0
+        for row in csv_reader:
+            if line_count != 0:
+                reward.append(float(row[0]))
+                length.append(int(row[1]))
+                time.append(float(row[2]))
+            line_count += 1
+
+    length = np.cumsum(length)  
+    return length, reward
+
+def plot_graph(plot_name, save_name, length, reward):
+    reward = moving_average(reward, window=1)
+    # Truncate length
+    length = length[len(length) - len(reward):]
+    title = plot_name
+    fig = plt.figure(title)
+    plt.plot(length, reward)
+    plt.xlabel('Number of Timesteps')
+    plt.ylabel('Rewards')
+    plt.title(title)
+    plt.savefig(save_name + ".png")
+    plt.savefig(save_name + ".eps")
+    # plt.show()
 
 exp_logger = 'experiment_logs'
-# log_dict = {}
 file = shelve.open(exp_logger)
 keys = list(file.keys())
 keys.sort()
-for i in keys:
-    print(i, file[i])
+for exp in keys:
+    model_names = file[exp][2]
+    print(exp, file[exp][2])
+    length, reward = [], []
+    cum_l = 0
+    plot_name = file[exp][0] + str(file[exp][1])
+    save_name = file[exp][0] + str(file[exp][1]) + str(file[exp][2])
+    for model_name in model_names:
+        run_path = 'tf_save/' + model_name
+        l, r = get_plot_csv(load_checkpoint(run_path))
+        length.extend(l + cum_l)
+        reward.extend(r)
+        cum_l += l[-1]
+    plot_graph(plot_name, save_name, length, reward)
 file.close()
-# with open(exp_logger) as csv_file:
-#     csv_reader = csv.reader(csv_file, delimiter=',')
-#     for row in csv_reader:
-#         print(ast.literal_eval(row[3]))
-
-# plot_log = run_path + checkpoint_keeper[-1] + '.csv'
-# print(len(checkpoint_keeper))
-# reward, length, time = [], [], []
-# with open(plot_log) as csv_file:
-#     csv_reader = csv.reader(csv_file, delimiter=',')
-#     line_count = 0
-#     for row in csv_reader:
-#     	if line_count != 0:
-#     		reward.append(float(row[0]))
-#     		length.append(int(row[1]))
-#     		time.append(float(row[2]))
-#     	line_count += 1
-
-# length = np.cumsum(length)
-# print(len(length))
-
-# # reward = moving_average(reward, window=1)
-# # Truncate length
-# length = length[len(length) - len(reward):]
-
-# title = 'my_plot'
-# fig = plt.figure(title)
-# plt.plot(length, reward)
-# plt.xlabel('Number of Timesteps')
-# plt.ylabel('Rewards')
-# # plt.title(title + " Smoothed")
-# # plt.savefig(save_name + ".png")
-# # plt.savefig(save_name + ".eps")
-# # print("plots saved...")
-# plt.show()

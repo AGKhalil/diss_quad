@@ -45,20 +45,17 @@ def load_checkpoint(checkpoint, run_path):
 	checkpoint_log = run_path + '/checkpoint'
 	checkpoint_keeper = []
 	with open(checkpoint_log) as csv_file:
-		csv_reader = csv.reader(csv_file, delimiter=' ')
-		line_count = 0
+		csv_reader = csv.reader(csv_file)
 		for row in csv_reader:
-			if line_count != 0:
-				checkpoint_keeper.append(row[1])
-			line_count += 1
+			checkpoint_keeper.append(row[0])
 	print('LOGGER: load_checkpoint_end')
 	return run_path + '/' + checkpoint_keeper[checkpoint] + '.pkl'
 
 def log_experiments(exp_num, exp_type, variants, model_names, exp_log, log_dict):
 	print('LOGGER: log_experiments_start')
-	# file = shelve.open(exp_log)
-	# file['exp' + exp_num] = [exp_type, variants, model_names]
-	# file.close()
+	file = shelve.open(exp_log)
+	file['exp' + exp_num] = [exp_type, variants, model_names]
+	file.close()
 	print('exp'  + exp_num)
 	# with open(exp_log, 'a') as csv_file:
 	# 	csv_writer = csv.writer(csv_file, delimiter=',')
@@ -96,7 +93,7 @@ def run_experiment(exp_num, exp_type, variants, n_cpu, step_total, exp_log, log_
 if __name__ == "__main__":
 	n_cpu = 8
 	n_step = 128
-	desired_log_pts = 5
+	desired_log_pts = 1500
 	step_total = desired_log_pts * n_cpu * n_step
 	leg_lengths = [i * -0.1 for i in range(1, 5)]
 	goal_diss = [i * -2 for i in range(2, 6)]
@@ -106,7 +103,7 @@ if __name__ == "__main__":
 
 	leg_type = 'LEG_LENGTH'
 	dis_type = 'GOAL_DIS'
-	exp_types = [dis_type, leg_type]
+	exp_types = [leg_type, dis_type]
 	for i in range(5):
 		print('LOGGER: main_loop_start')
 		for j, exp_type in enumerate(exp_types):

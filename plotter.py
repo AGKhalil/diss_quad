@@ -55,6 +55,7 @@ def plot_graph(plot_name, save_name, length, reward):
     plt.savefig(save_name + ".png")
     plt.savefig(save_name + ".eps")
     # plt.show()
+    plt.close()
 
 plot_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "plot_saves/")
 os.makedirs(plot_dir, exist_ok=True)

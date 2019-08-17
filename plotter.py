@@ -3,6 +3,7 @@ import csv
 import matplotlib.pyplot as plt
 import numpy as np
 import shelve
+from stable_baselines.common import pydrive_util
 
 def moving_average(values, window):
     """
@@ -15,15 +16,11 @@ def moving_average(values, window):
     return np.convolve(values, weights, 'valid')
 
 def load_checkpoint(run_path, checkpoint=-1):
-    checkpoint_log = run_path + '/checkpoint'
     checkpoint_keeper = []
-    with open(checkpoint_log) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=' ')
-        line_count = 0
+    with open('tmp/tmp_plt_file') as csv_file:
+        csv_reader = csv.reader(csv_file)
         for row in csv_reader:
-            if line_count != 0:
-                checkpoint_keeper.append(row[0])
-            line_count += 1
+            checkpoint_keeper.append(row[0])
     return run_path + '/' + checkpoint_keeper[checkpoint] + '.csv'
 
 def get_plot_csv(plot_log):
@@ -60,8 +57,12 @@ def plot_graph(plot_name, save_name, length, reward):
 plot_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "plot_saves/")
 os.makedirs(plot_dir, exist_ok=True)
 
-exp_logger = 'experiment_logs'
-file = shelve.open(exp_logger)
+drive = pydrive_util.drive_auth()
+
+exp_logger = 'tf_save/experiment_logs'
+pydrive_util.download_file(drive, exp_logger, plot=True, db=True)
+
+file = shelve.open('tmp/tmp_db_file')
 keys = list(file.keys())
 keys.sort()
 for exp in keys:
@@ -73,9 +74,13 @@ for exp in keys:
     save_name = plot_dir + file[exp][0] + str(file[exp][1]) + str(file[exp][2])
     for model_name in model_names:
         run_path = 'tf_save/' + model_name
-        l, r = get_plot_csv(load_checkpoint(run_path))
+        pydrive_util.download_file(drive, run_path + '/checkpoint', plot=True)
+        load_name = load_checkpoint(run_path)
+        pydrive_util.download_file(drive, load_name, plot=True)
+        l, r = get_plot_csv('tmp/tmp_plt_file')
         length.extend(l + cum_l)
         reward.extend(r)
         cum_l += l[-1]
     plot_graph(plot_name, save_name, length, reward)
 file.close()
+pydrive_util.clean_up('tmp')

@@ -57,10 +57,10 @@ def plot_graph(plot_name, save_name, length, reward):
     # plt.show()
     plt.close()
 
-plot_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "plot_saves/")
+plot_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "/media/brl/Seagate Expansion Drive1/khalil/plot_saves/")
 os.makedirs(plot_dir, exist_ok=True)
 
-exp_logger = 'experiment_logs'
+exp_logger = '/media/brl/Seagate Expansion Drive1/khalil/tf_save/experiment_logs'
 file = shelve.open(exp_logger)
 keys = list(file.keys())
 keys.sort()
@@ -72,7 +72,7 @@ for exp in keys:
     plot_name = exp + file[exp][0] + str(file[exp][1])
     save_name = plot_dir + file[exp][0] + str(file[exp][1]) + str(file[exp][2])
     for model_name in model_names:
-        run_path = 'tf_save/' + model_name
+        run_path = '/media/brl/Seagate Expansion Drive1/khalil/tf_save/' + model_name
         l, r = get_plot_csv(load_checkpoint(run_path))
         length.extend(l + cum_l)
         reward.extend(r)

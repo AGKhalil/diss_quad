@@ -92,15 +92,18 @@ if __name__ == "__main__":
 	leg_type = 'LEG_LENGTH'
 	dis_type = 'GOAL_DIS'
 	exp_types = [leg_type, dis_type]
-	for l in range(1, 5):
-    	for i in range(5):
-    		for j, exp_type in enumerate(exp_types):
-    			if exp_type == leg_type:
-    				variant = leg_lengths
-    			elif exp_type == dis_type:
-    				variant = goal_diss
-    			perms = list(permutations(variant, l))
-    			for k, perm in enumerate(perms):
-    				run_experiment(str(i) + '_' + str(j) + '_' + str(k), exp_type, perm, n_cpu, step_total, exp_log, log_dict)
+	for l in range(2, 5):
+		for i in range(5):
+			for j, exp_type in enumerate(exp_types):
+				if exp_type == leg_type:
+					variant = leg_lengths
+				elif exp_type == dis_type:
+					variant = goal_diss
+				baseline = [(m,) * l for m in variant]
+				perm_vars = list(permutations(variant, l))
+				perms = baseline + perm_vars
+				for k, perm in enumerate(perms):
+					print(perm)
+					run_experiment(str(i) + '_' + str(j) + '_' + str(k), exp_type, perm, n_cpu, step_total, exp_log, log_dict)
 
 

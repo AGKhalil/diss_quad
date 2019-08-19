@@ -86,21 +86,21 @@ if __name__ == "__main__":
 	leg_lengths = [i * -0.1 for i in range(1, 5)]
 	goal_diss = [i * -2 for i in range(2, 6)]
 
-	exp_log = 'experiment_logs'
+	exp_log = '/media/brl/Seagate Expansion Drive1/khalil/tf_save/experiment_logs'
 	log_dict = {}
 
 	leg_type = 'LEG_LENGTH'
 	dis_type = 'GOAL_DIS'
 	exp_types = [leg_type, dis_type]
-	for i in range(5):
-		for j, exp_type in enumerate(exp_types):
-			if exp_type == leg_type:
-				variant = leg_lengths
-			elif exp_type == dis_type:
-				variant = goal_diss
-			perm_2 = list(permutations(variant, 2))
-			perm_4 = list(permutations(variant))
-			perms = perm_2 + perm_4
-			for k, perm in enumerate(perms):
-				run_experiment(str(i) + '_' + str(j) + '_' + str(k), exp_type, perm, n_cpu, step_total, exp_log, log_dict)
+	for l in range(1, 5):
+    	for i in range(5):
+    		for j, exp_type in enumerate(exp_types):
+    			if exp_type == leg_type:
+    				variant = leg_lengths
+    			elif exp_type == dis_type:
+    				variant = goal_diss
+    			perms = list(permutations(variant, l))
+    			for k, perm in enumerate(perms):
+    				run_experiment(str(i) + '_' + str(j) + '_' + str(k), exp_type, perm, n_cpu, step_total, exp_log, log_dict)
+
 

@@ -12,6 +12,8 @@ from itertools import permutations
 import imageio
 import csv
 import shelve
+import cloudpickle
+from collections import defaultdict
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.common.vec_env import SubprocVecEnv, DummyVecEnv, VecNormalize
 from stable_baselines import PPO2
@@ -48,10 +50,14 @@ def load_checkpoint(checkpoint, run_path):
 	return run_path + '/' + checkpoint_keeper[checkpoint] + '.pkl'
 
 def log_experiments(exp_num, exp_type, variants, model_names, exp_log, log_dict):
-	file = shelve.open(exp_log)
-	file['exp' + exp_num] = [exp_type, variants, model_names]
-	file.close()
+	log_dict[exp_type, variants].append(model_names)
+	with open(exp_log, "wb") as file_:
+		cloudpickle.dump(log_dict, file_)
+	# file = shelve.open(exp_log)
+	# file['exp' + exp_num] = [exp_type, variants, model_names]
+	# file.close()
 	print('exp'  + exp_num)
+	return log_dict
 	# with open(exp_log, 'a') as csv_file:
 	# 	csv_writer = csv.writer(csv_file, delimiter=',')
 	# 	if os.stat(exp_log).st_size == 0:
@@ -76,34 +82,50 @@ def run_experiment(exp_num, exp_type, variants, n_cpu, step_total, exp_log, log_
 		model.learn(total_timesteps=step_total)
 		env.close()
 		del model, env
-	log_experiments(exp_num, exp_type, variants, model_names, exp_log, log_dict)
+	log_dict = log_experiments(exp_num, exp_type, variants, model_names, exp_log, log_dict)
+	return log_dict
 
 if __name__ == "__main__":
 	n_cpu = 20
 	n_step = 128
 	desired_log_pts = 1000
 	step_total = desired_log_pts * n_cpu * n_step
-	leg_lengths = [i * -0.1 for i in range(1, 5)]
+	leg_lengths_1 = [i * -0.1 for i in range(1, 5)]
+	leg_lengths_2 = [i * -0.1 for i in range(1, 9, 2)]
 	goal_diss = [i * -2 for i in range(2, 6)]
 
-	exp_log = '/media/brl/Seagate Expansion Drive1/khalil/tf_save/experiment_logs'
-	log_dict = {}
+	log_dir = '/media/brl/Seagate Expansion Drive1/khalil/tf_save/exp_log/'
+	os.makedirs(log_dir, exist_ok=True)
+	log_dict = defaultdict(list)
 
 	leg_type = 'LEG_LENGTH'
 	dis_type = 'GOAL_DIS'
-	exp_types = [leg_type, dis_type]
-	for l in range(2, 5):
-		for i in range(5):
-			for j, exp_type in enumerate(exp_types):
-				if exp_type == leg_type:
-					variant = leg_lengths
-				elif exp_type == dis_type:
-					variant = goal_diss
-				baseline = [(m,) * l for m in variant]
-				perm_vars = list(permutations(variant, l))
-				perms = baseline + perm_vars
-				for k, perm in enumerate(perms):
-					print(perm)
-					run_experiment(str(i) + '_' + str(j) + '_' + str(k), exp_type, perm, n_cpu, step_total, exp_log, log_dict)
+	exp_types = [leg_type]
+	lengths = 0
+	for exp in [0, 1]:
+		for l in range(2, 3):
+			for i in range(5):
+				for j, exp_type in enumerate(exp_types):
+					if exp_type == leg_type:
+						if exp == 0:
+							variant = leg_lengths_1
+							baseline = [(m,) * l for m in variant]
+						else:
+							variant = leg_lengths_2
+							baseline = [(m,) * l for m in variant[2:]]
+					elif exp_type == dis_type:
+						variant = goal_diss
+					perm_vars = list(permutations(variant, l))
+					perms = baseline + perm_vars
+					for k, perm in enumerate(perms):
+						print(perm)
+						exp_name = '{:%d%m%y_%H:%M:%S}'.format(datetime.datetime.now())
+						exp_log = log_dir + exp_name
+						log_dict = run_experiment(str(i) + '_' + str(j) + '_' + str(k), exp_type, perm, n_cpu, step_total, exp_log, log_dict)
+						checkpoint_log = log_dir + 'checkpoint'
+						print(checkpoint_log)
+						with open(checkpoint_log, mode='a') as employee_file:
+							employee_writer = csv.writer(employee_file)
+							employee_writer.writerow([exp_name])
 
 

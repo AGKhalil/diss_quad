@@ -1,6 +1,8 @@
 # diss_quad
-This project explored Curriculum Learning design in Deep Reinforcement Learning on Quadrupedal Locomotion. [Here](https://github.com/AGKhalil/gym-real) is the link to 
+This project explored Curriculum Learning design in Deep Reinforcement Learning on Quadrupedal Locomotion. The project dissertation report can be found [here](Dissertation_AK.pdf). [Here](https://github.com/AGKhalil/gym-real) is the link to 
 the quarupedal gym environemnt and [here](https://github.com/AGKhalil/gym-cl) is the link to the autoamted curriculum design gym environment.
+
+Please note that the main code is in the newHdd branch.
 
 Below are some chosen gifs of the agent performing in its design curricula.
 

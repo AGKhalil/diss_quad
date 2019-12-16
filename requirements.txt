@@ -44,7 +44,7 @@ scipy==1.3.0
 six==1.12.0
 -e git+git@github.com:AGKhalil/stable-baselines.git@2b41370497de3107da0c5858e23f70e49a0386b0#egg=stable_baselines
 tensorboard==1.12.2
-tensorflow==1.13.0rc1
+tensorflow==1.15.0
 tensorflow-estimator==1.13.0
 tensorflow-tensorboard==0.4.0
 termcolor==1.1.0
